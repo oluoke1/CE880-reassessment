@@ -1,0 +1,83 @@
+# Import necessary libraries
+import pandas as pd
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
+
+# Step 1: Load the data from Google Drive (replace with correct file IDs)
+train_data = pd.read_csv('https://drive.google.com/uc?export=download&id=1KZ3xzqbmZIZ7EcjOXpsjVv0reZauF0aC')
+test_data = pd.read_csv('https://drive.google.com/uc?export=download&id=1Uh3HaU7CK0hPEdm8itH3jr3ORe2CMTbd')
+
+# Step 2: Preprocess the test data (drop 'id' column)
+test_data_cleaned = test_data.drop('id', axis=1)
+
+# Step 3: Split the training data into features (X) and target (y)
+X = train_data.drop('price_range', axis=1)
+y = train_data['price_range']
+
+# Step 4: Train-test split for model evaluation
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Step 5: Initialize the scaler for feature scaling
+scaler = StandardScaler()
+
+# Step 6: Logistic Regression Hyperparameter Tuning
+log_reg = LogisticRegression(max_iter=1000)
+param_grid_log_reg = {
+    'logisticregression__C': [0.1, 1, 10],
+    'logisticregression__solver': ['liblinear', 'lbfgs']
+}
+pipeline_log_reg = Pipeline([('scaler', scaler), ('logisticregression', log_reg)])
+grid_search_log_reg = GridSearchCV(pipeline_log_reg, param_grid_log_reg, cv=5, scoring='accuracy', verbose=1)
+grid_search_log_reg.fit(X_train, y_train)
+
+# Step 7: SVM Hyperparameter Tuning
+svm_model = SVC()
+param_grid_svm = {
+    'svc__C': [0.1, 1, 10],
+    'svc__kernel': ['linear', 'rbf'],
+    'svc__gamma': ['scale', 'auto']
+}
+pipeline_svm = Pipeline([('scaler', scaler), ('svc', svm_model)])
+grid_search_svm = GridSearchCV(pipeline_svm, param_grid_svm, cv=5, scoring='accuracy', verbose=1)
+grid_search_svm.fit(X_train, y_train)
+
+# Step 8: Random Forest Hyperparameter Tuning (optional if time permits)
+rf_model = RandomForestClassifier()
+param_grid_rf = {
+    'randomforestclassifier__n_estimators': [100, 200],
+    'randomforestclassifier__max_depth': [10, 20, None],
+    'randomforestclassifier__min_samples_split': [2, 5],
+    'randomforestclassifier__min_samples_leaf': [1, 2]
+}
+pipeline_rf = Pipeline([('scaler', scaler), ('randomforestclassifier', rf_model)])
+grid_search_rf = GridSearchCV(pipeline_rf, param_grid_rf, cv=5, scoring='accuracy', verbose=1)
+grid_search_rf.fit(X_train, y_train)
+
+# Step 9: Get the best models from each grid search
+best_log_reg = grid_search_log_reg.best_estimator_
+best_svm = grid_search_svm.best_estimator_
+best_rf = grid_search_rf.best_estimator_
+
+# Step 10: Evaluate the models on the validation set
+log_reg_val_score = best_log_reg.score(X_val, y_val)
+svm_val_score = best_svm.score(X_val, y_val)
+rf_val_score = best_rf.score(X_val, y_val)  # optional for RF
+
+print(f"Logistic Regression Validation Accuracy: {log_reg_val_score}")
+print(f"SVM Validation Accuracy: {svm_val_score}")
+print(f"Random Forest Validation Accuracy: {rf_val_score}")  # optional
+
+# Step 11: Choose the best model (e.g., Logistic Regression) and predict on the test set
+best_model = best_log_reg  # or best_svm / best_rf based on validation scores
+predictions = best_model.predict(test_data_cleaned)
+
+# Step 12: Save the predictions to a CSV file
+submission = pd.DataFrame({'id': test_data['id'], 'price_range': predictions})
+submission.to_csv('/content/drive/MyDrive/final_predictions.csv', index=False)
+
+print("Predictions saved to 'final_predictions.csv'")
